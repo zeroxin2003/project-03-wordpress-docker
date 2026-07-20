@@ -21,6 +21,9 @@ services:
       WORDPRESS_DB_NAME: wordpress
       WORDPRESS_DB_USER: wp_user
       WORDPRESS_DB_PASSWORD: wp_secret123
+      WORDPRESS_CONFIG_EXTRA: |
+        define('WP_SITEURL', 'http://' . $_SERVER['HTTP_HOST'] . '/');
+        define('WP_HOME', 'http://' . $_SERVER['HTTP_HOST'] . '/');
     volumes:
       - wp_data:/var/www/html
     depends_on:
