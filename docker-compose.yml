@@ -22,6 +22,17 @@ services:
       WORDPRESS_DB_NAME: wordpress
       WORDPRESS_DB_USER: wp_user
       WORDPRESS_DB_PASSWORD: wp_secret123
+      WORDPRESS_CONFIG_EXTRA: |
+        if (isset($$_SERVER['HTTP_X_FORWARDED_HOST'])) {
+          $$fhost = $$_SERVER['HTTP_X_FORWARDED_HOST'];
+        } elseif (isset($$_SERVER['HTTP_HOST'])) {
+          $$fhost = $$_SERVER['HTTP_HOST'];
+        } else {
+          $$fhost = 'wp.deploylab.shop';
+        }
+        define('WP_SITEURL', 'https://' . $$fhost);
+        define('WP_HOME', 'https://' . $$fhost);
+        define('FORCE_SSL_ADMIN', true);
     volumes:
       - wp_data:/var/www/html
     depends_on:
