@@ -1,0 +1,74 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build and start services
+        run: docker compose up -d --build
+
+      - name: Wait for services to be healthy
+        run: |
+          echo "Waiting for all services to start..."
+          sleep 60
+          docker compose ps
+
+      - name: Test health endpoint
+        run: |
+          response=$(curl -s http://localhost:9090/health)
+          echo "Health check response: $response"
+          echo "$response" | grep -q "ok" || (echo "Health check failed!" && exit 1)
+
+      - name: Test WordPress is running
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:9090/)
+          echo "WordPress HTTP status: $response"
+          [ "$response" = "200" ] || [ "$response" = "302" ] || (echo "WordPress not responding!" && exit 1)
+
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose logs
+
+      - name: Stop services
+        if: always()
+        run: docker compose down
+
+  deploy:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to VPS
+        run: |
+          ssh -i ~/.ssh/deploy_key root@${{ secrets.VPS_HOST }} << 'DEPLOY'
+            cd /root/project-03-wordpress-docker 2>/dev/null || git clone https://github.com/zeroxin2003/project-03-wordpress-docker.git /root/project-03-wordpress-docker
+            cd /root/project-03-wordpress-docker
+            git pull origin main
+            docker compose up -d --build
+            echo "Deploy completed at $(date)"
+          DEPLOY
+
+      - name: Verify deployment
+        run: |
+          sleep 30
+          response=$(curl -s -o /dev/null -w "%{http_code}" http://${{ secrets.VPS_HOST }}:9090/)
+          echo "Deploy verification HTTP status: $response"
+          [ "$response" = "200" ] || [ "$response" = "302" ] || (echo "Deploy verification failed!" && exit 1)
