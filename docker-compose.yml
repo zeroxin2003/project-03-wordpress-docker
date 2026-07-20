@@ -22,7 +22,7 @@ services:
       WORDPRESS_DB_USER: wp_user
       WORDPRESS_DB_PASSWORD: wp_secret123
       WORDPRESS_CONFIG_EXTRA: |
-        $$fhost = $$_SERVER['HTTP_X_FORWARDED_HOST'] ?? $$_SERVER['HTTP_HOST'] ?? 'localhost';
+        $$fhost = getenv('HTTP_X_FORWARDED_HOST') ?: (getenv('HTTP_HOST') ?: 'localhost');
         define('WP_SITEURL', 'http://' . $$fhost);
         define('WP_HOME', 'http://' . $$fhost);
     volumes:
